@@ -1,7 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  turbopack: {
+    resolveAlias: {
+      canvas: { browser: './empty-module.ts' },
+    },
+  },
+}
 
-export default nextConfig;
+export default nextConfig
