@@ -2,12 +2,14 @@
 
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { ChevronLeft, Edit, Loader2, ClipboardList } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
+import { createClient } from '@/lib/supabase/client'
 
 const PdfPreview = dynamic(
   () => import('./PdfViewer').then((m) => m.PdfPreview),
@@ -37,6 +39,14 @@ const PrintButton = dynamic(
 export default function Step8Page() {
   const router = useRouter()
   const { application, loaded } = useApplication()
+  const [userEmail, setUserEmail] = useState<string | undefined>()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? undefined)
+    })
+  }, [])
 
   if (!loaded) {
     return (
@@ -81,7 +91,7 @@ export default function Step8Page() {
           </Card>
 
           <div className="grid grid-cols-2 gap-3">
-            <PdfDownloadButton application={application} />
+            <PdfDownloadButton application={application} email={userEmail} />
             <PrintButton />
           </div>
         </>

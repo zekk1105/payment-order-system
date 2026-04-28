@@ -14,11 +14,29 @@ export function PdfPreview({ application }: { application: Application }) {
   )
 }
 
-export function PdfDownloadButton({ application }: { application: Application }) {
+export function PdfDownloadButton({
+  application,
+  email,
+  name,
+}: {
+  application: Application
+  email?: string
+  name?: string
+}) {
+  const handleClick = () => {
+    if (!email) return
+    fetch('/api/email/pdf-complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name }),
+    }).catch((err) => console.error('Failed to send PDF complete email:', err))
+  }
+
   return (
     <PDFDownloadLink
       document={<PaymentOrderDocument application={application} />}
       fileName="支払督促申立書_下書き.pdf"
+      onClick={handleClick}
     >
       {({ loading }) => (
         <Button
