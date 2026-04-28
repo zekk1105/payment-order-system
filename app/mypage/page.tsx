@@ -111,6 +111,16 @@ export default function MyPage() {
     }
   }
 
+  function handleNewApplication() {
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem('sessionId')
+    } catch {
+      // ignore
+    }
+    router.push('/apply/step1')
+  }
+
   function handleContinue(app: ApplicationRow) {
     if (app.data) {
       try {
@@ -233,9 +243,18 @@ export default function MyPage() {
         {/* 2. 申立書の作成履歴 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base" style={{ color: '#1e3a5f' }}>
-              <FileText className="w-5 h-5" />
-              申立書の作成履歴
+            <CardTitle className="flex items-center justify-between text-base" style={{ color: '#1e3a5f' }}>
+              <span className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                申立書の作成履歴
+              </span>
+              <Button
+                size="sm"
+                onClick={handleNewApplication}
+                style={{ background: '#1e3a5f', color: 'white' }}
+              >
+                ＋ 新規作成
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -243,7 +262,7 @@ export default function MyPage() {
               <div className="text-center py-6 space-y-4">
                 <p className="text-gray-500 text-sm">まだ申立書を作成していません。</p>
                 <Button
-                  onClick={() => router.push('/apply/step1')}
+                  onClick={handleNewApplication}
                   style={{ background: '#1e3a5f', color: 'white' }}
                 >
                   申立書を作成する
