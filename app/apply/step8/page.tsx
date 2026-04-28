@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { ChevronLeft, Edit, Loader2 } from 'lucide-react'
+import { TermTooltip } from '@/components/TermTooltip'
 
 const PdfPreview = dynamic(
   () => import('./PdfViewer').then((m) => m.PdfPreview),
@@ -59,6 +60,8 @@ export default function Step8Page() {
         </h1>
         <p className="text-gray-600 text-sm">
           申立書の下書きPDFをプレビューして、ダウンロードまたは印刷できます。
+          <TermTooltip term="請求の趣旨">請求の趣旨</TermTooltip>と
+          <TermTooltip term="請求の原因">請求の原因</TermTooltip>が正しく記載されているか確認してください。
         </p>
       </div>
 

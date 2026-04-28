@@ -9,13 +9,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { calcStamp } from '@/lib/stamp-calculator'
 import { ChevronRight, ChevronLeft, HelpCircle, Receipt } from 'lucide-react'
+import { TermTooltip } from '@/components/TermTooltip'
 
-const checklistItems = [
+const checklistItems: React.ReactNode[] = [
   '相手方の住所・氏名を正確に確認した',
   '請求金額（元金・利息・遅延損害金）を確認した',
   '請求の原因の内容が事実と一致している',
-  '証拠書類（甲号証）のコピーを準備した',
-  '収入印紙は郵便局または法務局で購入できることを確認した',
+  <>証拠書類（甲号証）の<TermTooltip term="副本">副本</TermTooltip>（コピー）を準備した</>,
+  <><TermTooltip term="収入印紙">収入印紙</TermTooltip>は郵便局または法務局で購入できることを確認した</>,
   '提出先の裁判所の所在地を確認した',
 ]
 
@@ -63,7 +64,7 @@ export default function Step7Page() {
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <div>
-                <p className="text-sm font-semibold">収入印紙代</p>
+                <p className="text-sm font-semibold"><TermTooltip term="収入印紙">収入印紙</TermTooltip>代</p>
                 <p className="text-xs text-gray-500">
                   請求額 {(application.claim.total || application.claim.principal).toLocaleString()} 円に対する印紙
                 </p>
@@ -75,7 +76,7 @@ export default function Step7Page() {
 
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <div>
-                <p className="text-sm font-semibold">郵券（切手代）</p>
+                <p className="text-sm font-semibold"><TermTooltip term="郵券">郵券</TermTooltip>（切手代）</p>
                 <p className="text-xs text-gray-500">
                   {application.court?.name ?? '管轄裁判所'}への郵送費用
                 </p>
@@ -94,7 +95,7 @@ export default function Step7Page() {
           <div className="mt-4 flex items-start gap-2 text-xs bg-blue-50 rounded-lg p-3">
             <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-blue-600" />
             <span className="text-gray-600">
-              収入印紙は郵便局・コンビニ・法務局で購入できます。郵券は裁判所での購入が必要な場合もあります。
+              <TermTooltip term="収入印紙">収入印紙</TermTooltip>は郵便局・コンビニ・法務局で購入できます。<TermTooltip term="郵券">郵券</TermTooltip>は裁判所での購入が必要な場合もあります。
               正確な金額は提出先の裁判所にご確認ください。
             </span>
           </div>

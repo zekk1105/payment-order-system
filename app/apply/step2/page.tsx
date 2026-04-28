@@ -6,24 +6,80 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { Creditor, PartyType } from '@/types/application'
 import { ChevronRight, ChevronLeft, HelpCircle, Building2, User } from 'lucide-react'
+
+const toHalfWidth = (str: string) =>
+  str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+
+const formatPostalCode = (raw: string): string => {
+  const digits = toHalfWidth(raw).replace(/\D/g, '').slice(0, 7)
+  return digits.length > 3 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : digits
+}
+
+type FieldKey = 'corporateName' | 'name' | 'furigana' | 'postalCode' | 'address' | 'phone'
+type CreditorErrors = Partial<Record<FieldKey, string>>
+type TouchedFields = Partial<Record<FieldKey, boolean>>
+
+function validateCreditor(c: Creditor): CreditorErrors {
+  const errors: CreditorErrors = {}
+
+  if (c.partyType === 'corporation' && !(c.corporateName ?? '').trim())
+    errors.corporateName = '法人名・団体名は必須です'
+
+  if (!c.name.trim()) errors.name = '氏名は必須です'
+  else if (c.name.length > 50) errors.name = '50文字以内で入力してください'
+
+  if (!c.furigana.trim()) errors.furigana = 'ふりがなは必須です'
+  else if (!/^[ぁ-ん　]+$/.test(c.furigana)) errors.furigana = '全角ひらがなのみで入力してください'
+
+  if (c.postalCode && !/^\d{3}-\d{4}$/.test(c.postalCode))
+    errors.postalCode = '郵便番号は7桁の数字で入力してください'
+
+  if (c.phone) {
+    const half = toHalfWidth(c.phone)
+    if (!/^[\d\-]+$/.test(half)) {
+      errors.phone = '数値とハイフンのみ入力してください'
+    } else {
+      const digits = half.replace(/-/g, '')
+      if (digits.length < 10 || digits.length > 11) errors.phone = '10〜11桁の番号を入力してください'
+    }
+  }
+
+  if (!c.address.trim()) errors.address = '住所は必須です'
+  else if (c.address.length > 100) errors.address = '100文字以内で入力してください'
+
+  return errors
+}
 
 export default function Step2Page() {
   const router = useRouter()
   const { application, updateApplication } = useApplication()
   const [creditor, setCreditor] = useState<Creditor>(application.creditor)
+  const [touched, setTouched] = useState<TouchedFields>({})
+
+  const touch = (field: FieldKey) =>
+    setTouched((prev) => ({ ...prev, [field]: true }))
 
   const update = (field: keyof Creditor, value: string) => {
     setCreditor((prev) => ({ ...prev, [field]: value }))
+    touch(field as FieldKey)
   }
 
-  const isValid =
-    creditor.name.trim() !== '' &&
-    creditor.address.trim() !== '' &&
-    (creditor.partyType === 'individual' || (creditor.corporateName ?? '').trim() !== '')
+  const handlePostalChange = (raw: string) => {
+    update('postalCode', formatPostalCode(raw))
+  }
+
+  const handlePhoneChange = (raw: string) => {
+    update('phone', toHalfWidth(raw))
+  }
+
+  const errors = validateCreditor(creditor)
+  const hasErrors = Object.keys(errors).length > 0
+
+  const showError = (field: FieldKey) =>
+    touched[field] ? errors[field] : undefined
 
   const handleNext = () => {
     updateApplication({ creditor })
@@ -69,8 +125,10 @@ export default function Step2Page() {
                   ) : (
                     <Building2 className="w-6 h-6" style={creditor.partyType === type ? { color: '#1e3a5f' } : { color: '#9ca3af' }} />
                   )}
-                  <span className={`text-sm font-semibold ${creditor.partyType === type ? 'text-blue-900' : 'text-gray-500'}`}
-                    style={creditor.partyType === type ? { color: '#1e3a5f' } : {}}>
+                  <span
+                    className="text-sm font-semibold"
+                    style={creditor.partyType === type ? { color: '#1e3a5f' } : { color: '#6b7280' }}
+                  >
                     {type === 'individual' ? '個人' : '法人・団体'}
                   </span>
                 </button>
@@ -79,7 +137,7 @@ export default function Step2Page() {
           </div>
 
           {creditor.partyType === 'corporation' && (
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="corporateName" className="font-semibold">
                 法人名・団体名 <span className="text-red-500">*</span>
               </Label>
@@ -88,35 +146,66 @@ export default function Step2Page() {
                 placeholder="例：株式会社〇〇"
                 value={creditor.corporateName ?? ''}
                 onChange={(e) => update('corporateName', e.target.value)}
+                className={showError('corporateName') ? 'border-red-500' : ''}
               />
+              {showError('corporateName') && (
+                <p className="text-red-500 text-xs">{showError('corporateName')}</p>
+              )}
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="name" className="font-semibold">
-              {creditor.partyType === 'individual' ? '氏名' : '代表者名'} <span className="text-red-500">*</span>
+              {creditor.partyType === 'individual' ? '氏名' : '代表者名'}{' '}
+              <span className="text-red-500">*</span>
             </Label>
             <Input
               id="name"
               placeholder={creditor.partyType === 'individual' ? '例：山田 太郎' : '例：山田 太郎（代表取締役）'}
               value={creditor.name}
               onChange={(e) => update('name', e.target.value)}
+              className={showError('name') ? 'border-red-500' : ''}
             />
+            {showError('name') && (
+              <p className="text-red-500 text-xs">{showError('name')}</p>
+            )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="furigana" className="font-semibold">
-              ふりがな
+              ふりがな <span className="text-red-500">*</span>
             </Label>
             <Input
               id="furigana"
               placeholder="例：やまだ たろう"
               value={creditor.furigana}
               onChange={(e) => update('furigana', e.target.value)}
+              className={showError('furigana') ? 'border-red-500' : ''}
             />
+            {showError('furigana') && (
+              <p className="text-red-500 text-xs">{showError('furigana')}</p>
+            )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
+            <Label htmlFor="postalCode" className="font-semibold">
+              郵便番号
+            </Label>
+            <Input
+              id="postalCode"
+              placeholder="例：123-4567"
+              value={creditor.postalCode}
+              onChange={(e) => handlePostalChange(e.target.value)}
+              inputMode="numeric"
+              maxLength={8}
+              className={showError('postalCode') ? 'border-red-500' : ''}
+            />
+            {showError('postalCode') && (
+              <p className="text-red-500 text-xs">{showError('postalCode')}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
             <Label htmlFor="address" className="font-semibold">
               住所（法人は本店所在地） <span className="text-red-500">*</span>
             </Label>
@@ -125,10 +214,14 @@ export default function Step2Page() {
               placeholder="例：東京都新宿区〇〇1-2-3"
               value={creditor.address}
               onChange={(e) => update('address', e.target.value)}
+              className={showError('address') ? 'border-red-500' : ''}
             />
+            {showError('address') && (
+              <p className="text-red-500 text-xs">{showError('address')}</p>
+            )}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="phone" className="font-semibold">
               電話番号
             </Label>
@@ -136,19 +229,16 @@ export default function Step2Page() {
               id="phone"
               placeholder="例：03-1234-5678"
               value={creditor.phone}
-              onChange={(e) => update('phone', e.target.value)}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              inputMode="tel"
+              className={showError('phone') ? 'border-red-500' : ''}
             />
+            {showError('phone') && (
+              <p className="text-red-500 text-xs">{showError('phone')}</p>
+            )}
           </div>
         </CardContent>
       </Card>
-
-      {!isValid && (
-        <Alert className="border-amber-200 bg-amber-50">
-          <AlertDescription className="text-amber-700 text-xs">
-            ※ 氏名と住所は必須項目です（法人の場合は法人名も必要です）
-          </AlertDescription>
-        </Alert>
-      )}
 
       <div className="flex gap-3 pt-4">
         <Button
@@ -161,9 +251,9 @@ export default function Step2Page() {
         </Button>
         <Button
           className="flex-2 py-6 font-semibold rounded-xl flex-1"
-          disabled={!isValid}
+          disabled={hasErrors}
           onClick={handleNext}
-          style={isValid ? { background: '#1e3a5f', color: 'white' } : {}}
+          style={!hasErrors ? { background: '#1e3a5f', color: 'white' } : {}}
         >
           次のステップへ
           <ChevronRight className="ml-2 w-5 h-5" />

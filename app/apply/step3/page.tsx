@@ -12,14 +12,81 @@ import { Debtor, PartyType } from '@/types/application'
 import { findCourt, prefectures } from '@/lib/court-data'
 import { ChevronRight, ChevronLeft, HelpCircle, Building2, User, MapPin } from 'lucide-react'
 
+const toHalfWidth = (str: string) =>
+  str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+
+const formatPostalCode = (raw: string): string => {
+  const digits = toHalfWidth(raw).replace(/\D/g, '').slice(0, 7)
+  return digits.length > 3 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : digits
+}
+
+type FieldKey =
+  | 'corporateName'
+  | 'name'
+  | 'furigana'
+  | 'postalCode'
+  | 'phone'
+  | 'prefecture'
+  | 'city'
+  | 'address'
+type DebtorErrors = Partial<Record<FieldKey, string>>
+type TouchedFields = Partial<Record<FieldKey, boolean>>
+
+function validateDebtor(d: Debtor): DebtorErrors {
+  const errors: DebtorErrors = {}
+
+  if (d.partyType === 'corporation' && !(d.corporateName ?? '').trim())
+    errors.corporateName = '法人名・団体名は必須です'
+
+  if (!d.name.trim()) errors.name = '氏名は必須です'
+  else if (d.name.length > 50) errors.name = '50文字以内で入力してください'
+
+  if (!d.furigana.trim()) errors.furigana = 'ふりがなは必須です'
+  else if (!/^[ぁ-ん　]+$/.test(d.furigana)) errors.furigana = '全角ひらがなのみで入力してください'
+
+  if (d.postalCode && !/^\d{3}-\d{4}$/.test(d.postalCode))
+    errors.postalCode = '郵便番号は7桁の数字で入力してください'
+
+  if (d.phone) {
+    const half = toHalfWidth(d.phone)
+    if (!/^[\d\-]+$/.test(half)) {
+      errors.phone = '数値とハイフンのみ入力してください'
+    } else {
+      const digits = half.replace(/-/g, '')
+      if (digits.length < 10 || digits.length > 11) errors.phone = '10〜11桁の番号を入力してください'
+    }
+  }
+
+  if (!d.prefecture.trim()) errors.prefecture = '都道府県を選択してください'
+  if (!d.city.trim()) errors.city = '市区町村は必須です'
+
+  if (!d.address.trim()) errors.address = '住所は必須です'
+  else if (d.address.length > 100) errors.address = '100文字以内で入力してください'
+
+  return errors
+}
+
 export default function Step3Page() {
   const router = useRouter()
   const { application, updateApplication } = useApplication()
   const [debtor, setDebtor] = useState<Debtor>(application.debtor)
   const [detectedCourt, setDetectedCourt] = useState(application.court)
+  const [touched, setTouched] = useState<TouchedFields>({})
+
+  const touch = (field: FieldKey) =>
+    setTouched((prev) => ({ ...prev, [field]: true }))
 
   const update = (field: keyof Debtor, value: string) => {
     setDebtor((prev) => ({ ...prev, [field]: value }))
+    touch(field as FieldKey)
+  }
+
+  const handlePostalChange = (raw: string) => {
+    update('postalCode', formatPostalCode(raw))
+  }
+
+  const handlePhoneChange = (raw: string) => {
+    update('phone', toHalfWidth(raw))
   }
 
   useEffect(() => {
@@ -31,12 +98,11 @@ export default function Step3Page() {
     }
   }, [debtor.prefecture, debtor.city])
 
-  const isValid =
-    debtor.name.trim() !== '' &&
-    debtor.address.trim() !== '' &&
-    debtor.prefecture.trim() !== '' &&
-    debtor.city.trim() !== '' &&
-    (debtor.partyType === 'individual' || (debtor.corporateName ?? '').trim() !== '')
+  const errors = validateDebtor(debtor)
+  const hasErrors = Object.keys(errors).length > 0
+
+  const showError = (field: FieldKey) =>
+    touched[field] ? errors[field] : undefined
 
   const handleNext = () => {
     updateApplication({ debtor, court: detectedCourt })
@@ -82,7 +148,10 @@ export default function Step3Page() {
                   ) : (
                     <Building2 className="w-6 h-6" style={debtor.partyType === type ? { color: '#1e3a5f' } : { color: '#9ca3af' }} />
                   )}
-                  <span className="text-sm font-semibold" style={debtor.partyType === type ? { color: '#1e3a5f' } : { color: '#6b7280' }}>
+                  <span
+                    className="text-sm font-semibold"
+                    style={debtor.partyType === type ? { color: '#1e3a5f' } : { color: '#6b7280' }}
+                  >
                     {type === 'individual' ? '個人' : '法人・団体'}
                   </span>
                 </button>
@@ -91,7 +160,7 @@ export default function Step3Page() {
           </div>
 
           {debtor.partyType === 'corporation' && (
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="corporateName" className="font-semibold">
                 法人名・団体名 <span className="text-red-500">*</span>
               </Label>
@@ -100,34 +169,84 @@ export default function Step3Page() {
                 placeholder="例：株式会社〇〇"
                 value={debtor.corporateName ?? ''}
                 onChange={(e) => update('corporateName', e.target.value)}
+                className={showError('corporateName') ? 'border-red-500' : ''}
               />
+              {showError('corporateName') && (
+                <p className="text-red-500 text-xs">{showError('corporateName')}</p>
+              )}
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="name" className="font-semibold">
-              {debtor.partyType === 'individual' ? '氏名' : '代表者名'} <span className="text-red-500">*</span>
+              {debtor.partyType === 'individual' ? '氏名' : '代表者名'}{' '}
+              <span className="text-red-500">*</span>
             </Label>
             <Input
               id="name"
               placeholder="例：田中 花子"
               value={debtor.name}
               onChange={(e) => update('name', e.target.value)}
+              className={showError('name') ? 'border-red-500' : ''}
             />
+            {showError('name') && (
+              <p className="text-red-500 text-xs">{showError('name')}</p>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="furigana" className="font-semibold">ふりがな</Label>
+          <div className="space-y-1">
+            <Label htmlFor="furigana" className="font-semibold">
+              ふりがな <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="furigana"
               placeholder="例：たなか はなこ"
               value={debtor.furigana}
               onChange={(e) => update('furigana', e.target.value)}
+              className={showError('furigana') ? 'border-red-500' : ''}
             />
+            {showError('furigana') && (
+              <p className="text-red-500 text-xs">{showError('furigana')}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="postalCode" className="font-semibold">
+              郵便番号
+            </Label>
+            <Input
+              id="postalCode"
+              placeholder="例：123-4567"
+              value={debtor.postalCode}
+              onChange={(e) => handlePostalChange(e.target.value)}
+              inputMode="numeric"
+              maxLength={8}
+              className={showError('postalCode') ? 'border-red-500' : ''}
+            />
+            {showError('postalCode') && (
+              <p className="text-red-500 text-xs">{showError('postalCode')}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="phone" className="font-semibold">
+              電話番号
+            </Label>
+            <Input
+              id="phone"
+              placeholder="例：03-1234-5678"
+              value={debtor.phone}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              inputMode="tel"
+              className={showError('phone') ? 'border-red-500' : ''}
+            />
+            {showError('phone') && (
+              <p className="text-red-500 text-xs">{showError('phone')}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="prefecture" className="font-semibold">
                 都道府県 <span className="text-red-500">*</span>
               </Label>
@@ -135,15 +254,20 @@ export default function Step3Page() {
                 id="prefecture"
                 value={debtor.prefecture}
                 onChange={(e) => update('prefecture', e.target.value)}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                className={`w-full h-10 px-3 rounded-md border bg-background text-sm ${
+                  showError('prefecture') ? 'border-red-500' : 'border-input'
+                }`}
               >
                 <option value="">選択してください</option>
                 {prefectures.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
+              {showError('prefecture') && (
+                <p className="text-red-500 text-xs">{showError('prefecture')}</p>
+              )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="city" className="font-semibold">
                 市区町村 <span className="text-red-500">*</span>
               </Label>
@@ -152,11 +276,15 @@ export default function Step3Page() {
                 placeholder="例：横浜市"
                 value={debtor.city}
                 onChange={(e) => update('city', e.target.value)}
+                className={showError('city') ? 'border-red-500' : ''}
               />
+              {showError('city') && (
+                <p className="text-red-500 text-xs">{showError('city')}</p>
+              )}
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="address" className="font-semibold">
               番地以降の住所 <span className="text-red-500">*</span>
             </Label>
@@ -165,7 +293,11 @@ export default function Step3Page() {
               placeholder="例：中区〇〇1-2-3 △△マンション101号"
               value={debtor.address}
               onChange={(e) => update('address', e.target.value)}
+              className={showError('address') ? 'border-red-500' : ''}
             />
+            {showError('address') && (
+              <p className="text-red-500 text-xs">{showError('address')}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -203,9 +335,9 @@ export default function Step3Page() {
         </Button>
         <Button
           className="flex-1 py-6 font-semibold rounded-xl"
-          disabled={!isValid}
+          disabled={hasErrors}
           onClick={handleNext}
-          style={isValid ? { background: '#1e3a5f', color: 'white' } : {}}
+          style={!hasErrors ? { background: '#1e3a5f', color: 'white' } : {}}
         >
           次のステップへ
           <ChevronRight className="ml-2 w-5 h-5" />

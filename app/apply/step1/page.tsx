@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { CheckCircle2, AlertTriangle, HelpCircle, ChevronRight } from 'lucide-react'
+import { TermTooltip } from '@/components/TermTooltip'
 
 interface Question {
   id: keyof { knowsAddress: boolean | null; amountFixed: boolean | null; clearlyRefused: boolean | null }
   text: string
-  hint: string
+  hint: React.ReactNode
   warnOnNo: string
 }
 
@@ -19,7 +20,12 @@ const questions: Question[] = [
   {
     id: 'knowsAddress',
     text: '相手方（お金を払うべき人）の現住所がわかりますか？',
-    hint: '支払督促は、相手方の住所地を管轄する裁判所に申し立てる必要があります。',
+    hint: (
+      <>
+        <TermTooltip term="送達">送達</TermTooltip>
+        のため、相手方の正確な住所が必要です。住所地を管轄する裁判所に申し立てます。
+      </>
+    ),
     warnOnNo: '相手方の住所が不明の場合、支払督促の申立ては困難です。まず住所を確認してから手続きを進めてください。',
   },
   {
@@ -65,7 +71,7 @@ export default function Step1Page() {
           STEP 1｜状況確認
         </h1>
         <p className="text-gray-600 text-sm">
-          まず、支払督促の申立てに必要な条件が整っているか確認します。
+          まず、<TermTooltip term="督促命令">支払督促</TermTooltip>の申立てに必要な条件が整っているか確認します。
           すべての質問に答えてください。
         </p>
       </div>

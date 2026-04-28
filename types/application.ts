@@ -6,6 +6,7 @@ export interface Creditor {
   partyType: PartyType
   name: string
   furigana: string
+  postalCode: string
   address: string
   phone: string
   corporateName?: string
@@ -16,6 +17,8 @@ export interface Debtor {
   partyType: PartyType
   name: string
   furigana: string
+  postalCode: string
+  phone: string
   address: string
   prefecture: string
   city: string
@@ -39,6 +42,7 @@ export interface ClaimContent {
   delayDamage: number
   total: number
   description: string
+  overdueMonths: number
 }
 
 export interface Evidence {
@@ -73,6 +77,7 @@ export const defaultApplication: Application = {
     partyType: 'individual',
     name: '',
     furigana: '',
+    postalCode: '',
     address: '',
     phone: '',
     corporateName: '',
@@ -82,6 +87,8 @@ export const defaultApplication: Application = {
     partyType: 'individual',
     name: '',
     furigana: '',
+    postalCode: '',
+    phone: '',
     address: '',
     prefecture: '',
     city: '',
@@ -99,6 +106,7 @@ export const defaultApplication: Application = {
     delayDamage: 0,
     total: 0,
     description: '',
+    overdueMonths: 0,
   },
   claimReason: '',
   evidences: [],
