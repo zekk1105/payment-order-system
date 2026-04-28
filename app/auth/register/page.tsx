@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { validateEmail } from '@/lib/validators'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,15 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    if (!email) {
+      setError('メールアドレスを入力してください')
+      return
+    }
+    if (!validateEmail(email)) {
+      setError('メールアドレスの形式が正しくありません')
+      return
+    }
 
     const passwordError = validatePassword(password)
     if (passwordError) {

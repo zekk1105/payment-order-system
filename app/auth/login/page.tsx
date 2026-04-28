@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { validateEmail } from '@/lib/validators'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,20 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    if (!email) {
+      setError('メールアドレスを入力してください')
+      return
+    }
+    if (!validateEmail(email)) {
+      setError('メールアドレスの形式が正しくありません')
+      return
+    }
+    if (!password) {
+      setError('パスワードを入力してください')
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()

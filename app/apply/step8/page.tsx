@@ -1,13 +1,13 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
-import { ChevronLeft, Edit, Loader2, ClipboardList } from 'lucide-react'
+import { ChevronLeft, Edit, Loader2, ClipboardList, CreditCard, Download, CheckCircle, XCircle } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
 import { createClient } from '@/lib/supabase/client'
 
@@ -38,15 +38,50 @@ const PrintButton = dynamic(
 
 export default function Step8Page() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { application, loaded } = useApplication()
   const [userEmail, setUserEmail] = useState<string | undefined>()
+  const [userId, setUserId] = useState<string | undefined>()
+  const [isPaying, setIsPaying] = useState(false)
+
+  const isSuccess = searchParams.get('success') === 'true'
+  const isCanceled = searchParams.get('canceled') === 'true'
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? undefined)
+      setUserId(data.user?.id ?? undefined)
     })
   }, [])
+
+  useEffect(() => {
+    if (isSuccess && userEmail) {
+      fetch('/api/email/pdf-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      }).catch(console.error)
+    }
+  }, [isSuccess, userEmail])
+
+  const handleCheckout = async () => {
+    setIsPaying(true)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId ?? '', sessionId: '' }),
+      })
+      const { url } = await res.json()
+      if (url) {
+        window.location.href = url
+      }
+    } catch (err) {
+      console.error('Checkout error:', err)
+      setIsPaying(false)
+    }
+  }
 
   if (!loaded) {
     return (
@@ -82,6 +117,24 @@ export default function Step8Page() {
         </AlertDescription>
       </Alert>
 
+      {isSuccess && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+          <AlertDescription className="text-green-700 font-medium ml-2">
+            決済が完了しました。PDFをダウンロードしてください。
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isCanceled && (
+        <Alert className="border-red-200 bg-red-50">
+          <XCircle className="w-4 h-4 text-red-600" />
+          <AlertDescription className="text-red-700 font-medium ml-2">
+            決済がキャンセルされました。
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isReady ? (
         <>
           <Card>
@@ -90,10 +143,40 @@ export default function Step8Page() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <PdfDownloadButton application={application} email={userEmail} />
-            <PrintButton />
-          </div>
+          {isSuccess ? (
+            <div className="grid grid-cols-2 gap-3">
+              <PdfDownloadButton application={application} email={userEmail} />
+              <PrintButton />
+            </div>
+          ) : isCanceled ? (
+            <Button
+              className="w-full py-5 text-base font-semibold rounded-xl"
+              style={{ background: '#1e3a5f', color: 'white' }}
+              onClick={handleCheckout}
+              disabled={isPaying}
+            >
+              {isPaying ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <CreditCard className="w-5 h-5 mr-2" />
+              )}
+              もう一度決済する（9,800円）
+            </Button>
+          ) : (
+            <Button
+              className="w-full py-5 text-base font-semibold rounded-xl"
+              style={{ background: '#1e3a5f', color: 'white' }}
+              onClick={handleCheckout}
+              disabled={isPaying}
+            >
+              {isPaying ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-5 h-5 mr-2" />
+              )}
+              PDFをダウンロード（9,800円）
+            </Button>
+          )}
         </>
       ) : (
         <Card className="border-amber-200">
@@ -121,14 +204,16 @@ export default function Step8Page() {
         </Button>
       </div>
 
-      <Button
-        className="w-full py-6 text-base font-semibold rounded-xl"
-        style={{ background: '#c9a84c', color: 'white' }}
-        onClick={() => router.push('/guide')}
-      >
-        <ClipboardList className="w-5 h-5 mr-2" />
-        提出手順を確認する
-      </Button>
+      {isSuccess && (
+        <Button
+          className="w-full py-6 text-base font-semibold rounded-xl"
+          style={{ background: '#c9a84c', color: 'white' }}
+          onClick={() => router.push('/guide')}
+        >
+          <ClipboardList className="w-5 h-5 mr-2" />
+          提出手順を確認する
+        </Button>
+      )}
     </div>
   )
 }
