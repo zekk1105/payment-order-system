@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { generateClaimReason } from '@/lib/claim-templates'
 import { ChevronRight, ChevronLeft, HelpCircle, RotateCcw } from 'lucide-react'
+import { saveApplication } from '@/lib/save-application'
 
 export default function Step5Page() {
   const router = useRouter()
@@ -49,10 +50,11 @@ export default function Step5Page() {
   const handleChange = (value: string) => {
     setText(value)
     setIsEdited(value !== defaultText)
+    updateApplication({ claimReason: value })
   }
 
   const handleNext = () => {
-    updateApplication({ claimReason: text })
+    saveApplication(6).catch(console.error)
     router.push('/apply/step6')
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { Evidence } from '@/types/application'
 import { ChevronRight, ChevronLeft, HelpCircle, Plus, Trash2, FileCheck } from 'lucide-react'
+import { saveApplication } from '@/lib/save-application'
 
 const evidenceExamples = [
   '借用証書（写し）',
@@ -22,34 +23,43 @@ const evidenceExamples = [
 
 export default function Step6Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
+  const { application, updateApplication, loaded } = useApplication()
   const [evidences, setEvidences] = useState<Evidence[]>(application.evidences)
-  const [skipped, setSkipped] = useState(application.evidences.length === 0 && false)
+
+  useEffect(() => {
+    if (!loaded) return
+    setEvidences(application.evidences)
+  }, [loaded])
 
   const addEvidence = () => {
     const next: Evidence = { number: evidences.length + 1, description: '' }
-    setEvidences((prev) => [...prev, next])
+    const nextEvidences = [...evidences, next]
+    setEvidences(nextEvidences)
+    updateApplication({ evidences: nextEvidences })
   }
 
   const removeEvidence = (index: number) => {
-    setEvidences((prev) =>
-      prev
-        .filter((_, i) => i !== index)
-        .map((e, i) => ({ ...e, number: i + 1 }))
-    )
+    const nextEvidences = evidences
+      .filter((_, i) => i !== index)
+      .map((e, i) => ({ ...e, number: i + 1 }))
+    setEvidences(nextEvidences)
+    updateApplication({ evidences: nextEvidences })
   }
 
   const updateEvidence = (index: number, description: string) => {
-    setEvidences((prev) => prev.map((e, i) => (i === index ? { ...e, description } : e)))
+    const nextEvidences = evidences.map((e, i) => (i === index ? { ...e, description } : e))
+    setEvidences(nextEvidences)
+    updateApplication({ evidences: nextEvidences })
   }
 
   const handleSkip = () => {
     updateApplication({ evidences: [] })
+    saveApplication(7).catch(console.error)
     router.push('/apply/step7')
   }
 
   const handleNext = () => {
-    updateApplication({ evidences })
+    saveApplication(7).catch(console.error)
     router.push('/apply/step7')
   }
 
@@ -124,7 +134,9 @@ export default function Step6Page() {
                 type="button"
                 onClick={() => {
                   const next: Evidence = { number: evidences.length + 1, description: ex }
-                  setEvidences((prev) => [...prev, next])
+                  const nextEvidences = [...evidences, next]
+                  setEvidences(nextEvidences)
+                  updateApplication({ evidences: nextEvidences })
                 }}
                 className="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors"
               >

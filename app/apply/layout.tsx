@@ -22,6 +22,13 @@ export default async function ApplyLayout({ children }: { children: React.ReactN
             </Link>
             <div className="flex items-center gap-3">
               <span className="text-xs text-gray-500 hidden sm:block">{user.email}</span>
+              <Link
+                href="/mypage"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1e3a5f' }}
+              >
+                マイページ
+              </Link>
               <LogoutButton />
             </div>
           </div>

@@ -11,6 +11,7 @@ import { useApplication } from '@/hooks/useApplication'
 import { Debtor, PartyType } from '@/types/application'
 import { findCourt, prefectures } from '@/lib/court-data'
 import { ChevronRight, ChevronLeft, HelpCircle, Building2, User, MapPin } from 'lucide-react'
+import { saveApplication } from '@/lib/save-application'
 
 const toHalfWidth = (str: string) =>
   str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
@@ -68,17 +69,24 @@ function validateDebtor(d: Debtor): DebtorErrors {
 
 export default function Step3Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
+  const { application, updateApplication, loaded } = useApplication()
   const [debtor, setDebtor] = useState<Debtor>(application.debtor)
   const [detectedCourt, setDetectedCourt] = useState(application.court)
   const [touched, setTouched] = useState<TouchedFields>({})
+
+  useEffect(() => {
+    if (!loaded) return
+    setDebtor(application.debtor)
+  }, [loaded])
 
   const touch = (field: FieldKey) =>
     setTouched((prev) => ({ ...prev, [field]: true }))
 
   const update = (field: keyof Debtor, value: string) => {
-    setDebtor((prev) => ({ ...prev, [field]: value }))
+    const next = { ...debtor, [field]: value }
+    setDebtor(next)
     touch(field as FieldKey)
+    updateApplication({ debtor: next })
   }
 
   const handlePostalChange = (raw: string) => {
@@ -105,7 +113,8 @@ export default function Step3Page() {
     touched[field] ? errors[field] : undefined
 
   const handleNext = () => {
-    updateApplication({ debtor, court: detectedCourt })
+    updateApplication({ court: detectedCourt })
+    saveApplication(4).catch(console.error)
     router.push('/apply/step4')
   }
 

@@ -11,6 +11,7 @@ import { ClaimContent, ClaimType } from '@/types/application'
 import { calcInterest } from '@/lib/stamp-calculator'
 import { ChevronRight, ChevronLeft, HelpCircle, Banknote, ShoppingCart, Home, AlertTriangle } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
+import { saveApplication } from '@/lib/save-application'
 
 const claimTypes: { type: ClaimType; label: string; desc: string; icon: React.ReactNode }[] = [
   {
@@ -84,7 +85,7 @@ function validateClaim(c: ClaimContent, today: string): { errors: ClaimErrors; w
 
 export default function Step4Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
+  const { application, updateApplication, loaded } = useApplication()
   const [claim, setClaim] = useState<ClaimContent>(application.claim)
   const [principalStr, setPrincipalStr] = useState(
     application.claim.principal > 0 ? String(application.claim.principal) : ''
@@ -94,11 +95,20 @@ export default function Step4Page() {
   )
   const [touched, setTouched] = useState<TouchedFields>({})
 
+  useEffect(() => {
+    if (!loaded) return
+    setClaim(application.claim)
+    setPrincipalStr(application.claim.principal > 0 ? String(application.claim.principal) : '')
+    setOverdueMonthsStr(application.claim.overdueMonths > 0 ? String(application.claim.overdueMonths) : '')
+  }, [loaded])
+
   const touch = (field: FieldKey) =>
     setTouched((prev) => ({ ...prev, [field]: true }))
 
   const update = (field: keyof ClaimContent, value: string | number) => {
-    setClaim((prev) => ({ ...prev, [field]: value }))
+    const next = { ...claim, [field]: value }
+    setClaim(next)
+    updateApplication({ claim: next })
   }
 
   const handlePrincipalChange = (raw: string) => {
@@ -132,6 +142,8 @@ export default function Step4Page() {
     )
     const total = claim.principal + interest
     setClaim((prev) => ({ ...prev, delayDamage: interest, total }))
+    updateApplication({ claim: { ...claim, delayDamage: interest, total } })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claim.principal, claim.delayInterestRate, claim.dueDate])
 
   const today = new Date().toISOString().slice(0, 10)
@@ -145,7 +157,7 @@ export default function Step4Page() {
     touched[field] ? warnings[field] : undefined
 
   const handleNext = () => {
-    updateApplication({ claim })
+    saveApplication(5).catch(console.error)
     router.push('/apply/step5')
   }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,17 +50,23 @@ type Answers = {
 
 export default function Step1Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
+  const { application, updateApplication, loaded } = useApplication()
   const [answers, setAnswers] = useState<Answers>(application.step1)
 
+  useEffect(() => {
+    if (!loaded) return
+    setAnswers(application.step1)
+  }, [loaded])
+
   const setAnswer = (id: keyof Answers, value: boolean) => {
-    setAnswers((prev) => ({ ...prev, [id]: value }))
+    const next = { ...answers, [id]: value }
+    setAnswers(next)
+    updateApplication({ step1: next })
   }
 
   const canProceed = answers.knowsAddress === true && answers.amountFixed === true
 
   const handleNext = () => {
-    updateApplication({ step1: answers })
     router.push('/apply/step2')
   }
 

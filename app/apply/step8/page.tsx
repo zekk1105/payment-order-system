@@ -10,6 +10,7 @@ import { useApplication } from '@/hooks/useApplication'
 import { ChevronLeft, Edit, Loader2, ClipboardList, CreditCard, Download, CheckCircle, XCircle } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
 import { createClient } from '@/lib/supabase/client'
+import { saveApplication } from '@/lib/save-application'
 
 const PdfPreview = dynamic(
   () => import('./PdfViewer').then((m) => m.PdfPreview),
@@ -54,6 +55,12 @@ export default function Step8Page() {
       setUserId(data.user?.id ?? undefined)
     })
   }, [])
+
+  useEffect(() => {
+    if (isSuccess) {
+      saveApplication(8).catch(console.error)
+    }
+  }, [isSuccess])
 
   useEffect(() => {
     if (isSuccess && userEmail) {

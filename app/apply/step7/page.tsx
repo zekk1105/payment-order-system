@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { useApplication } from '@/hooks/useApplication'
 import { calcStamp } from '@/lib/stamp-calculator'
 import { ChevronRight, ChevronLeft, HelpCircle, Receipt } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
+import { saveApplication } from '@/lib/save-application'
 
 const checklistItems: React.ReactNode[] = [
   '相手方の住所・氏名を正確に確認した',
@@ -22,12 +23,17 @@ const checklistItems: React.ReactNode[] = [
 
 export default function Step7Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
-  const [checklist, setChecklist] = useState<boolean[]>(
-    application.checklist.length === checklistItems.length
-      ? application.checklist
-      : new Array(checklistItems.length).fill(false)
-  )
+  const { application, updateApplication, loaded } = useApplication()
+  const [checklist, setChecklist] = useState<boolean[]>(new Array(checklistItems.length).fill(false))
+
+  useEffect(() => {
+    if (!loaded) return
+    setChecklist(
+      application.checklist.length === checklistItems.length
+        ? application.checklist
+        : new Array(checklistItems.length).fill(false)
+    )
+  }, [loaded])
 
   const stampAmount = calcStamp(application.claim.total || application.claim.principal)
   const postalAmount = application.court?.stampAmount ?? 6000
@@ -160,7 +166,10 @@ export default function Step7Page() {
         <Button
           className="flex-1 py-6 font-semibold rounded-xl"
           disabled={!allChecked}
-          onClick={() => router.push('/apply/step8')}
+          onClick={() => {
+            saveApplication(8).catch(console.error)
+            router.push('/apply/step8')
+          }}
           style={allChecked ? { background: '#c9a84c', color: '#1e3a5f' } : {}}
         >
           PDFを確認する

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useApplication } from '@/hooks/useApplication'
 import { Creditor, PartyType } from '@/types/application'
 import { ChevronRight, ChevronLeft, HelpCircle, Building2, User } from 'lucide-react'
+import { saveApplication } from '@/lib/save-application'
 
 const toHalfWidth = (str: string) =>
   str.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
@@ -55,16 +56,23 @@ function validateCreditor(c: Creditor): CreditorErrors {
 
 export default function Step2Page() {
   const router = useRouter()
-  const { application, updateApplication } = useApplication()
+  const { application, updateApplication, loaded } = useApplication()
   const [creditor, setCreditor] = useState<Creditor>(application.creditor)
   const [touched, setTouched] = useState<TouchedFields>({})
+
+  useEffect(() => {
+    if (!loaded) return
+    setCreditor(application.creditor)
+  }, [loaded])
 
   const touch = (field: FieldKey) =>
     setTouched((prev) => ({ ...prev, [field]: true }))
 
   const update = (field: keyof Creditor, value: string) => {
-    setCreditor((prev) => ({ ...prev, [field]: value }))
+    const next = { ...creditor, [field]: value }
+    setCreditor(next)
     touch(field as FieldKey)
+    updateApplication({ creditor: next })
   }
 
   const handlePostalChange = (raw: string) => {
@@ -82,7 +90,7 @@ export default function Step2Page() {
     touched[field] ? errors[field] : undefined
 
   const handleNext = () => {
-    updateApplication({ creditor })
+    saveApplication(3).catch(console.error)
     router.push('/apply/step3')
   }
 
