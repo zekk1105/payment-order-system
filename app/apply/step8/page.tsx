@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
-import { ChevronLeft, Edit, Loader2 } from 'lucide-react'
+import { ChevronLeft, Edit, Loader2, ClipboardList } from 'lucide-react'
 import { TermTooltip } from '@/components/TermTooltip'
 
 const PdfPreview = dynamic(
@@ -110,6 +110,15 @@ export default function Step8Page() {
           内容を修正する
         </Button>
       </div>
+
+      <Button
+        className="w-full py-6 text-base font-semibold rounded-xl"
+        style={{ background: '#c9a84c', color: 'white' }}
+        onClick={() => router.push('/guide')}
+      >
+        <ClipboardList className="w-5 h-5 mr-2" />
+        提出手順を確認する
+      </Button>
     </div>
   )
 }
