@@ -39,6 +39,7 @@ export default function Step5Page() {
       setIsEdited(application.claimReason !== generated)
     } else {
       setText(generated)
+      updateApplication({ claimReason: generated })
     }
   }, [loaded])
 

@@ -134,6 +134,7 @@ export default function Step4Page() {
   }
 
   useEffect(() => {
+    if (!loaded) return
     const interest = calcInterest(
       claim.principal,
       claim.delayInterestRate,
@@ -144,7 +145,7 @@ export default function Step4Page() {
     setClaim((prev) => ({ ...prev, delayDamage: interest, total }))
     updateApplication({ claim: { ...claim, delayDamage: interest, total } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claim.principal, claim.delayInterestRate, claim.dueDate])
+  }, [loaded, claim.principal, claim.delayInterestRate, claim.dueDate])
 
   const today = new Date().toISOString().slice(0, 10)
   const { errors, warnings } = validateClaim(claim, today)
