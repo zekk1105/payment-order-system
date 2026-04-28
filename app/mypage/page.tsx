@@ -68,6 +68,7 @@ export default function MyPage() {
         .select('id, created_at, updated_at, debtor_name, claim_amount, payment_status, status, current_step, data')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .limit(5)
 
       setApplications(data ?? [])
       setLoading(false)

@@ -11,6 +11,7 @@ import { ChevronLeft, Edit, Loader2, ClipboardList, CreditCard, Download, CheckC
 import { TermTooltip } from '@/components/TermTooltip'
 import { createClient } from '@/lib/supabase/client'
 import { saveApplication } from '@/lib/save-application'
+import { getOrCreateSessionId } from '@/lib/session'
 
 const PdfPreview = dynamic(
   () => import('./PdfViewer').then((m) => m.PdfPreview),
@@ -78,7 +79,7 @@ export default function Step8Page() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId ?? '', sessionId: '' }),
+        body: JSON.stringify({ userId: userId ?? '', sessionId: getOrCreateSessionId() }),
       })
       const { url } = await res.json()
       if (url) {
