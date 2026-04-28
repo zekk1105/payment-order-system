@@ -34,11 +34,16 @@ export async function POST(request: NextRequest) {
     )
 
     if (userId) {
-      await supabase
+      const { error } = await supabase
         .from('applications')
         .update({ payment_status: 'paid' })
         .eq('user_id', userId)
         .eq('session_id', sessionId)
+
+      if (error) {
+        console.error('Failed to update payment status:', error)
+        return new Response('Internal server error', { status: 500 })
+      }
     }
 
     const customerEmail = session.customer_details?.email
