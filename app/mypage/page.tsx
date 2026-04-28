@@ -19,10 +19,12 @@ import {
   Lock,
   Download,
   PenLine,
+  RefreshCw,
 } from 'lucide-react'
 
 type ApplicationRow = {
   id: string
+  session_id: string | null
   created_at: string
   updated_at: string
   debtor_name: string | null
@@ -53,6 +55,17 @@ export default function MyPage() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function loadApplications(userId: string) {
+    const { data } = await supabase
+      .from('applications')
+      .select('id, session_id, created_at, updated_at, debtor_name, claim_amount, payment_status, status, current_step, data')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    setApplications(data ?? [])
+  }
 
   useEffect(() => {
     async function load() {
@@ -62,19 +75,18 @@ export default function MyPage() {
         return
       }
       setUser({ id: user.id, email: user.email, created_at: user.created_at })
-
-      const { data } = await supabase
-        .from('applications')
-        .select('id, created_at, updated_at, debtor_name, claim_amount, payment_status, status, current_step, data')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      setApplications(data ?? [])
+      await loadApplications(user.id)
       setLoading(false)
     }
     load()
   }, [])
+
+  async function handleRefresh() {
+    if (!user) return
+    setRefreshing(true)
+    await loadApplications(user.id)
+    setRefreshing(false)
+  }
 
   async function handleEmailChange() {
     if (!newEmail) return
@@ -122,12 +134,15 @@ export default function MyPage() {
   }
 
   function handleContinue(app: ApplicationRow) {
-    if (app.data) {
-      try {
+    try {
+      if (app.data) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(app.data))
-      } catch {
-        // ignore
       }
+      if (app.session_id) {
+        localStorage.setItem('sessionId', app.session_id)
+      }
+    } catch {
+      // ignore
     }
     router.push(`/apply/step${app.current_step ?? 1}`)
   }
@@ -248,13 +263,23 @@ export default function MyPage() {
                 <FileText className="w-5 h-5" />
                 申立書の作成履歴
               </span>
-              <Button
-                size="sm"
-                onClick={handleNewApplication}
-                style={{ background: '#1e3a5f', color: 'white' }}
-              >
-                ＋ 新規作成
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleNewApplication}
+                  style={{ background: '#1e3a5f', color: 'white' }}
+                >
+                  ＋ 新規作成
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
