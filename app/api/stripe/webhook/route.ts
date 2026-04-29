@@ -28,25 +28,18 @@ export async function POST(request: NextRequest) {
     const session = event.data.object as Stripe.Checkout.Session
     const { userId, sessionId } = session.metadata ?? {}
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    console.log('[webhook] url:', supabaseUrl)
-    console.log('[webhook] key prefix:', supabaseKey?.slice(0, 20))
-    console.log('[webhook] userId:', userId, 'sessionId:', sessionId)
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    )
 
     if (userId) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('applications')
         .update({ payment_status: 'paid' })
         .eq('user_id', userId)
         .eq('session_id', sessionId)
-        .select()
-
-      console.log('[webhook] update result:', JSON.stringify({ data, error }))
 
       if (error) {
         console.error('Failed to update payment status:', error)

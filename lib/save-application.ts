@@ -18,8 +18,27 @@ export async function saveApplication(step: number): Promise<void> {
     : (data.debtor?.name ?? '')
   const claimAmount: number = data.claim?.total || data.claim?.principal || 0
 
-  const { error } = await supabase.from('applications').upsert(
-    {
+  // 既存レコードへのUPDATE（payment_statusは上書きしない）
+  const { data: updated, error: updateError } = await supabase
+    .from('applications')
+    .update({
+      data,
+      current_step: step,
+      status: step === 8 ? 'completed' : 'draft',
+      debtor_name: debtorName,
+      claim_amount: claimAmount,
+    })
+    .eq('session_id', sessionId)
+    .select('id')
+
+  if (updateError) {
+    console.error('[saveApplication] Supabase update error:', updateError.message, updateError.details, updateError.hint)
+    throw new Error(`データの保存に失敗しました: ${updateError.message}`)
+  }
+
+  // レコードが存在しない場合のみINSERT（初回保存時にpayment_status: 'unpaid'を設定）
+  if (!updated || updated.length === 0) {
+    const { error: insertError } = await supabase.from('applications').insert({
       user_id: user.id,
       session_id: sessionId,
       data,
@@ -28,12 +47,11 @@ export async function saveApplication(step: number): Promise<void> {
       debtor_name: debtorName,
       claim_amount: claimAmount,
       payment_status: 'unpaid',
-    },
-    { onConflict: 'session_id' }
-  )
+    })
 
-  if (error) {
-    console.error('[saveApplication] Supabase upsert error:', error.message, error.details, error.hint)
-    throw new Error(`データの保存に失敗しました: ${error.message}`)
+    if (insertError) {
+      console.error('[saveApplication] Supabase insert error:', insertError.message, insertError.details, insertError.hint)
+      throw new Error(`データの保存に失敗しました: ${insertError.message}`)
+    }
   }
 }
