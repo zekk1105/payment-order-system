@@ -96,29 +96,46 @@
 | 中 | 管理者ダッシュボード実装 | ✅ 2026-04-29 実装済み（申立書一覧・ユーザー管理・売上サマリー）|
 | 中 | PDF書式精緻化 | 弁護士監修後に対応 |
 | 中 | Google認証の追加 | Supabase Auth でメール認証の後に追加予定 |
-| 低 | 全国裁判所対応 | 現在は主要都市のみ。管轄裁判所の自動判定を全国に拡張 |
+| 低 | 全国裁判所対応 | ✅ 2026-04-30 実装済み。全47都道府県・298庁収録・郵便番号自動入力対応 |
 
 ---
 
 ## 作業ログ
 
-### 2026-04-29（管理者ダッシュボード実装）
+### 2026-04-30（管理者ダッシュボード・全国裁判所対応・郵便番号自動入力）
 
-#### 管理者ダッシュボード【実装済み】
-- **アクセス方法**：`/admin`（`zekk.inc1105@gmail.com` でログイン時のみ）
-- **認証**：`middleware.ts` でメールアドレス判定・未ログインは `/auth/login` へリダイレクト
+#### 全国簡易裁判所対応【実装済み】
+- **変更ファイル**：`lib/court-data.ts`（全面書き換え）、`lib/postal-code.ts`（新規）、`app/apply/step3/page.tsx`（更新）
+- **概要**：13庁 → 全47都道府県・298庁に拡張
+- **郵便番号自動入力**：ZipCloud API（無料・APIキー不要）で7桁入力時に都道府県・市区町村を自動補完
+- **マッチングロジック**：完全一致 → 前方一致（「横浜市西区」→「横浜市」）→ 逆前方一致（「豊岡」→「豊岡市」）→ 都道府県フォールバックの4段階
+- **郵券額の注記**：「参考値・申立前に裁判所へご確認ください」と明記
+- **注記**：最高裁判所ウェブサイト（https://www.courts.go.jp）で全438庁を個別確認・更新することで精度をさらに向上可能
+
+---
+
+### 2026-04-30（管理者ダッシュボード実装・ログイン画面・バグ修正）
+
+#### 管理者ダッシュボード【実装済み・本番反映済み】
+- **アクセス方法**：`/admin/login` から `zekk.inc1105@gmail.com` でログイン
+- **認証**：`proxy.ts`（Next.js 16 のミドルウェア）でメールアドレス判定・未認証は `/admin/login` へリダイレクト
 - **作成ファイル**：
   - `lib/supabase/admin.ts` — Service Roleクライアント（RLS迂回）
-  - `middleware.ts` — `/admin/*` 保護
-  - `app/admin/layout.tsx` — 管理者共通レイアウト（サイドバー）
-  - `app/admin/page.tsx` — ダッシュボード（売上・決済率・月別グラフ）
-  - `app/admin/applications/page.tsx` — 申立書一覧（検索・フィルター・CSVエクスポート）
-  - `app/admin/users/page.tsx` — ユーザー管理（一覧・申立書数・決済件数）
+  - `app/admin/(dashboard)/layout.tsx` — 管理者共通レイアウト（サイドバー）
+  - `app/admin/(dashboard)/AdminSidebar.tsx` — サイドバー（ログアウト・現在ページハイライト・メール表示）
+  - `app/admin/(dashboard)/page.tsx` — ダッシュボード（売上・決済率・月別グラフ）
+  - `app/admin/(dashboard)/applications/page.tsx` — 申立書一覧（検索・フィルター・CSVエクスポート）
+  - `app/admin/(dashboard)/users/page.tsx` — ユーザー管理（一覧・申立書数・決済件数）
+  - `app/admin/login/page.tsx` — 管理者専用ログイン画面
   - `app/api/admin/stats/route.ts` — 統計API
   - `app/api/admin/applications/route.ts` — 申立書API（CSV対応）
   - `app/api/admin/users/route.ts` — ユーザーAPI（Supabase Admin Auth使用）
 - **単価設定**：`app/api/admin/stats/route.ts` の `PRICE_PER_APPLICATION = 9800` で変更可
-- **管理者メール追加**：各ファイルの `ADMIN_EMAILS` 配列に追記（middleware.ts / 各API route）
+- **管理者メール追加**：`proxy.ts` と各 API route の `ADMIN_EMAILS` 配列に追記
+
+#### Next.js 16 対応バグ修正【修正済み】
+- **原因**：Next.js 16 でミドルウェアが `middleware.ts` → `proxy.ts` に改名。既存の `proxy.ts` と新規作成した `middleware.ts` が競合し全リクエストが固まっていた
+- **修正**：`middleware.ts` を削除し、admin保護ロジックを既存の `proxy.ts` に統合
 
 ---
 

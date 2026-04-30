@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useApplication } from '@/hooks/useApplication'
 import { Debtor, PartyType } from '@/types/application'
 import { findCourt, prefectures } from '@/lib/court-data'
-import { ChevronRight, ChevronLeft, HelpCircle, Building2, User, MapPin } from 'lucide-react'
+import { lookupPostalCode } from '@/lib/postal-code'
+import { ChevronRight, ChevronLeft, HelpCircle, Building2, User, MapPin, Loader2 } from 'lucide-react'
 import { saveApplication } from '@/lib/save-application'
 
 const toHalfWidth = (str: string) =>
@@ -73,6 +74,10 @@ export default function Step3Page() {
   const [debtor, setDebtor] = useState<Debtor>(application.debtor)
   const [detectedCourt, setDetectedCourt] = useState(application.court)
   const [touched, setTouched] = useState<TouchedFields>({})
+  const [postalLookupStatus, setPostalLookupStatus] = useState<'idle' | 'loading' | 'found' | 'notfound'>('idle')
+
+  // 郵便番号のデバウンス用
+  const postalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!loaded) return
@@ -89,14 +94,45 @@ export default function Step3Page() {
     updateApplication({ debtor: next })
   }
 
+  const updateMultiple = (fields: Partial<Debtor>) => {
+    const next = { ...debtor, ...fields }
+    setDebtor(next)
+    updateApplication({ debtor: next })
+  }
+
+  // 郵便番号が7桁になったらZipCloudで住所を自動取得
   const handlePostalChange = (raw: string) => {
-    update('postalCode', formatPostalCode(raw))
+    const formatted = formatPostalCode(raw)
+    update('postalCode', formatted)
+
+    const digits = formatted.replace(/\D/g, '')
+    if (postalTimerRef.current) clearTimeout(postalTimerRef.current)
+
+    if (digits.length === 7) {
+      setPostalLookupStatus('loading')
+      postalTimerRef.current = setTimeout(async () => {
+        const result = await lookupPostalCode(digits)
+        if (result) {
+          updateMultiple({
+            postalCode: formatted,
+            prefecture: result.prefecture,
+            city: result.city,
+          })
+          setPostalLookupStatus('found')
+        } else {
+          setPostalLookupStatus('notfound')
+        }
+      }, 300)
+    } else {
+      setPostalLookupStatus('idle')
+    }
   }
 
   const handlePhoneChange = (raw: string) => {
     update('phone', toHalfWidth(raw))
   }
 
+  // 都道府県・市区町村が変わったら管轄裁判所を再判定
   useEffect(() => {
     if (debtor.prefecture && debtor.city) {
       const court = findCourt(debtor.prefecture, debtor.city)
@@ -126,14 +162,14 @@ export default function Step3Page() {
         </h1>
         <p className="text-gray-600 text-sm">
           相手方（お金を払うべき人）の情報を入力します。
-          都道府県と市区町村を入力すると、管轄裁判所が自動で表示されます。
+          郵便番号を入力すると住所と管轄裁判所が自動で表示されます。
         </p>
       </div>
 
       <div className="flex items-start gap-2 text-xs text-gray-500 bg-blue-50 rounded-lg p-3">
         <HelpCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600" />
         <span>
-          相手方の住所地を管轄する簡易裁判所に申し立てます。住所を入力すると管轄裁判所を自動判定します。
+          相手方の住所地を管轄する簡易裁判所に申し立てます。郵便番号を入力すると住所と管轄裁判所を自動判定します。
         </span>
       </div>
 
@@ -219,21 +255,39 @@ export default function Step3Page() {
             )}
           </div>
 
+          {/* 郵便番号（住所自動入力） */}
           <div className="space-y-1">
             <Label htmlFor="postalCode" className="font-semibold">
               郵便番号
+              <span className="ml-2 text-xs font-normal text-blue-600">
+                ※ 入力すると住所を自動補完します
+              </span>
             </Label>
-            <Input
-              id="postalCode"
-              placeholder="例：123-4567"
-              value={debtor.postalCode}
-              onChange={(e) => handlePostalChange(e.target.value)}
-              inputMode="numeric"
-              maxLength={8}
-              className={showError('postalCode') ? 'border-red-500' : ''}
-            />
+            <div className="relative">
+              <Input
+                id="postalCode"
+                placeholder="例：123-4567"
+                value={debtor.postalCode}
+                onChange={(e) => handlePostalChange(e.target.value)}
+                inputMode="numeric"
+                maxLength={8}
+                className={showError('postalCode') ? 'border-red-500 pr-10' : 'pr-10'}
+              />
+              {postalLookupStatus === 'loading' && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />
+              )}
+              {postalLookupStatus === 'found' && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>
+              )}
+            </div>
             {showError('postalCode') && (
               <p className="text-red-500 text-xs">{showError('postalCode')}</p>
+            )}
+            {postalLookupStatus === 'notfound' && (
+              <p className="text-amber-600 text-xs">郵便番号から住所を取得できませんでした。手動で入力してください。</p>
+            )}
+            {postalLookupStatus === 'found' && (
+              <p className="text-green-600 text-xs">✓ 住所を自動入力しました</p>
             )}
           </div>
 
@@ -254,6 +308,7 @@ export default function Step3Page() {
             )}
           </div>
 
+          {/* 都道府県・市区町村（郵便番号から自動補完 or 手動入力） */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label htmlFor="prefecture" className="font-semibold">
@@ -282,7 +337,7 @@ export default function Step3Page() {
               </Label>
               <Input
                 id="city"
-                placeholder="例：横浜市"
+                placeholder="例：横浜市西区"
                 value={debtor.city}
                 onChange={(e) => update('city', e.target.value)}
                 className={showError('city') ? 'border-red-500' : ''}
@@ -299,7 +354,7 @@ export default function Step3Page() {
             </Label>
             <Input
               id="address"
-              placeholder="例：中区〇〇1-2-3 △△マンション101号"
+              placeholder="例：1-2-3 △△マンション101号"
               value={debtor.address}
               onChange={(e) => update('address', e.target.value)}
               className={showError('address') ? 'border-red-500' : ''}
@@ -311,6 +366,7 @@ export default function Step3Page() {
         </CardContent>
       </Card>
 
+      {/* 管轄裁判所表示 */}
       {detectedCourt && (
         <Card className="border-2" style={{ borderColor: '#c9a84c' }}>
           <CardContent className="pt-4">
@@ -321,7 +377,8 @@ export default function Step3Page() {
                 <p className="font-bold text-lg" style={{ color: '#1e3a5f' }}>{detectedCourt.name}</p>
                 <p className="text-sm text-gray-600">{detectedCourt.address}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  郵券額：<span className="font-semibold">{detectedCourt.stampAmount.toLocaleString()}円</span>
+                  郵券額（参考）：<span className="font-semibold">{detectedCourt.stampAmount.toLocaleString()}円</span>
+                  <span className="ml-1 text-gray-400">※ 申立前に裁判所へご確認ください</span>
                 </p>
               </div>
             </div>

@@ -1,6 +1,6 @@
 # 支払督促書類作成支援システム 詳細引き継ぎ資料
 
-最終更新：2026年4月29日
+最終更新：2026年4月30日
 
 ---
 
@@ -44,7 +44,7 @@
 | 自動テスト | ✅ 完了 | Vitest 32件全パス |
 | マイページ | ✅ 完了 | アカウント・履歴・決済履歴・リフレッシュボタン |
 | Supabaseへのデータ保存 | ✅ 完了 | upsert修正・RLSポリシー修正済み |
-| 管理者ダッシュボード | ⬜ 未実装 | Phase 2最後の機能 |
+| 管理者ダッシュボード | ✅ 完了 | 2026-04-30 実装済み（申立書一覧・ユーザー管理・売上サマリー）/admin/login からアクセス |
 | 全国裁判所対応 | ⬜ 未実装 | 現在は主要都市のみ |
 | PDF書式精緻化 | ⬜ 未実装 | 弁護士監修後に対応 |
 | Google認証 | ⬜ 未実装 | メール認証の後に追加予定 |
@@ -113,3 +113,37 @@ localStorage.setItem('sessionId', app.session_id)
 **原因**：`lib/save-application.ts` の `upsert` が `payment_status: 'unpaid'` を常に書き込んでいた  
 **対応**：UPDATE → なければ INSERT の2ステップに変更。既存レコードのUPDATE時は `payment_status` を変更しない。初回INSERTのみ `payment_status: 'unpaid'` をセット。  
 **変更ファイル**：`lib/save-application.ts`
+
+---
+
+## 作業ログ（2026年4月30日）
+
+### 管理者ダッシュボード実装【完了・本番反映済み】
+
+**アクセス方法**：`/admin/login` から `zekk.inc1105@gmail.com` でログイン  
+**認証**：`proxy.ts`（Next.js 16 のミドルウェア）でメールアドレス判定・未認証は `/admin/login` へリダイレクト
+
+**作成ファイル**：
+- `lib/supabase/admin.ts` — Service Roleクライアント（RLS迂回）
+- `app/admin/(dashboard)/layout.tsx` — 管理者共通レイアウト（サイドバー）
+- `app/admin/(dashboard)/AdminSidebar.tsx` — サイドバー（ログアウト・現在ページハイライト・メール表示）
+- `app/admin/(dashboard)/page.tsx` — ダッシュボード（売上・決済率・月別グラフ）
+- `app/admin/(dashboard)/applications/page.tsx` — 申立書一覧（検索・フィルター・CSVエクスポート）
+- `app/admin/(dashboard)/users/page.tsx` — ユーザー管理（一覧・申立書数・決済件数）
+- `app/admin/login/page.tsx` — 管理者専用ログイン画面
+- `app/api/admin/stats/route.ts` — 統計API（単価：`PRICE_PER_APPLICATION = 9800`）
+- `app/api/admin/applications/route.ts` — 申立書API（CSV対応）
+- `app/api/admin/users/route.ts` — ユーザーAPI（Supabase Admin Auth使用）
+
+**設定変更方法**：
+- 単価変更：`app/api/admin/stats/route.ts` の `PRICE_PER_APPLICATION`
+- 管理者メール追加：`proxy.ts` と各 API route の `ADMIN_EMAILS` 配列に追記
+
+---
+
+### Next.js 16 対応バグ修正【修正済み】
+
+**症状**：全リクエストが固まり、アプリが応答しなくなった  
+**原因**：Next.js 16 でミドルウェアが `middleware.ts` → `proxy.ts` に改名。既存の `proxy.ts` と新規作成した `middleware.ts` が競合し全リクエストが処理されなくなった  
+**対応**：`middleware.ts` を削除し、admin保護ロジックを既存の `proxy.ts` に統合  
+**変更ファイル**：`proxy.ts`（admin保護ロジック統合）、`middleware.ts`（削除）
