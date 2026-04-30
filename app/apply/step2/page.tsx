@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useApplication } from '@/hooks/useApplication'
 import { Creditor, PartyType } from '@/types/application'
-import { ChevronRight, ChevronLeft, HelpCircle, Building2, User } from 'lucide-react'
+import { lookupPostalCode } from '@/lib/postal-code'
+import { ChevronRight, ChevronLeft, HelpCircle, Building2, User, Loader2 } from 'lucide-react'
 import { saveApplication } from '@/lib/save-application'
 
 const toHalfWidth = (str: string) =>
@@ -59,6 +60,8 @@ export default function Step2Page() {
   const { application, updateApplication, loaded } = useApplication()
   const [creditor, setCreditor] = useState<Creditor>(application.creditor)
   const [touched, setTouched] = useState<TouchedFields>({})
+  const [postalLookupStatus, setPostalLookupStatus] = useState<'idle' | 'loading' | 'found' | 'notfound'>('idle')
+  const postalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!loaded) return
@@ -75,8 +78,32 @@ export default function Step2Page() {
     updateApplication({ creditor: next })
   }
 
+  // 郵便番号が7桁になったらZipCloudで住所を自動取得
   const handlePostalChange = (raw: string) => {
-    update('postalCode', formatPostalCode(raw))
+    const formatted = formatPostalCode(raw)
+    update('postalCode', formatted)
+
+    const digits = formatted.replace(/\D/g, '')
+    if (postalTimerRef.current) clearTimeout(postalTimerRef.current)
+
+    if (digits.length === 7) {
+      setPostalLookupStatus('loading')
+      postalTimerRef.current = setTimeout(async () => {
+        const result = await lookupPostalCode(digits)
+        if (result) {
+          // 都道府県+市区町村+町域 を address に自動入力（番地は空けておく）
+          const autoAddress = `${result.prefecture}${result.city}${result.town}`
+          const next = { ...creditor, postalCode: formatted, address: autoAddress }
+          setCreditor(next)
+          updateApplication({ creditor: next })
+          setPostalLookupStatus('found')
+        } else {
+          setPostalLookupStatus('notfound')
+        }
+      }, 300)
+    } else {
+      setPostalLookupStatus('idle')
+    }
   }
 
   const handlePhoneChange = (raw: string) => {
@@ -198,18 +225,35 @@ export default function Step2Page() {
           <div className="space-y-1">
             <Label htmlFor="postalCode" className="font-semibold">
               郵便番号
+              <span className="ml-2 text-xs font-normal text-blue-600">
+                ※ 入力すると住所を自動補完します
+              </span>
             </Label>
-            <Input
-              id="postalCode"
-              placeholder="例：123-4567"
-              value={creditor.postalCode}
-              onChange={(e) => handlePostalChange(e.target.value)}
-              inputMode="numeric"
-              maxLength={8}
-              className={showError('postalCode') ? 'border-red-500' : ''}
-            />
+            <div className="relative">
+              <Input
+                id="postalCode"
+                placeholder="例：123-4567"
+                value={creditor.postalCode}
+                onChange={(e) => handlePostalChange(e.target.value)}
+                inputMode="numeric"
+                maxLength={8}
+                className={showError('postalCode') ? 'border-red-500 pr-10' : 'pr-10'}
+              />
+              {postalLookupStatus === 'loading' && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />
+              )}
+              {postalLookupStatus === 'found' && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>
+              )}
+            </div>
             {showError('postalCode') && (
               <p className="text-red-500 text-xs">{showError('postalCode')}</p>
+            )}
+            {postalLookupStatus === 'notfound' && (
+              <p className="text-amber-600 text-xs">郵便番号から住所を取得できませんでした。手動で入力してください。</p>
+            )}
+            {postalLookupStatus === 'found' && (
+              <p className="text-green-600 text-xs">✓ 住所を自動入力しました。番地・建物名を追加してください。</p>
             )}
           </div>
 
@@ -219,7 +263,7 @@ export default function Step2Page() {
             </Label>
             <Input
               id="address"
-              placeholder="例：東京都新宿区〇〇1-2-3"
+              placeholder="例：東京都新宿区〇〇1-2-3 △△マンション101号"
               value={creditor.address}
               onChange={(e) => update('address', e.target.value)}
               className={showError('address') ? 'border-red-500' : ''}
