@@ -10,7 +10,7 @@ export default function HomePage() {
       <div className="max-w-4xl mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <Badge className="mb-4 text-sm" style={{ background: '#c9a84c', color: '#1e3a5f' }}>
-            無料・書類作成補助ツール
+            無料・書類作成補助システム
           </Badge>
           <h1 className="text-4xl font-bold text-white mb-4">
             支払督促書類
